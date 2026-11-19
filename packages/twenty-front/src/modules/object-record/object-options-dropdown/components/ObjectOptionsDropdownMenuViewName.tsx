@@ -5,12 +5,9 @@ import { TextInput } from '@/ui/input/components/TextInput';
 import { DropdownMenuItemsContainer } from '@/ui/layout/dropdown/components/DropdownMenuItemsContainer';
 import { useHotkeysOnFocusedElement } from '@/ui/utilities/hotkey/hooks/useHotkeysOnFocusedElement';
 import { useAtomComponentState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentState';
-import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { useSetAtomComponentState } from '@/ui/utilities/state/jotai/hooks/useSetAtomComponentState';
 import { type View } from '@/views/types/View';
-import { useUpdateViewFromCurrentState } from '@/views/view-picker/hooks/useUpdateViewFromCurrentState';
 import { viewPickerIsDirtyComponentState } from '@/views/view-picker/states/viewPickerIsDirtyComponentState';
-import { viewPickerIsPersistingComponentState } from '@/views/view-picker/states/viewPickerIsPersistingComponentState';
 import { viewPickerSelectedIconComponentState } from '@/views/view-picker/states/viewPickerSelectedIconComponentState';
 import { styled } from '@linaria/react';
 import { useEffect, useRef, useState } from 'react';
@@ -64,9 +61,6 @@ export const ObjectOptionsDropdownMenuViewName = ({
   const [viewPickerSelectedIcon, setViewPickerSelectedIcon] =
     useAtomComponentState(viewPickerSelectedIconComponentState);
 
-  const viewPickerIsPersisting = useAtomComponentStateValue(
-    viewPickerIsPersistingComponentState,
-  );
   const setViewPickerIsDirty = useSetAtomComponentState(
     viewPickerIsDirtyComponentState,
   );
@@ -74,23 +68,23 @@ export const ObjectOptionsDropdownMenuViewName = ({
   const { setAndPersistViewName, setAndPersistViewIcon } =
     useUpdateObjectViewOptions();
 
-  const { updateViewFromCurrentState } = useUpdateViewFromCurrentState();
   const [viewName, setViewName] = useState(currentView?.name);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const { dropdownId } = useObjectOptionsDropdown();
 
+  const handleViewNameChange = useDebouncedCallback((value: string) => {
+    setAndPersistViewName(value, currentView);
+  }, 500);
+
+  // Enter persists the pending (debounced) name right away
   useHotkeysOnFocusedElement({
     keys: [Key.Enter],
-    callback: async () => {
-      if (viewPickerIsPersisting) {
-        return;
-      }
-
-      await updateViewFromCurrentState();
+    callback: () => {
+      handleViewNameChange.flush();
     },
     focusId: dropdownId,
-    dependencies: [viewPickerIsPersisting, updateViewFromCurrentState],
+    dependencies: [handleViewNameChange],
   });
 
   const handleIconChange = ({ iconKey }: { iconKey: string }) => {
@@ -98,10 +92,6 @@ export const ObjectOptionsDropdownMenuViewName = ({
     setViewPickerSelectedIcon(iconKey);
     setAndPersistViewIcon(iconKey, currentView);
   };
-
-  const handleViewNameChange = useDebouncedCallback((value: string) => {
-    setAndPersistViewName(value, currentView);
-  }, 500);
 
   useEffect(() => {
     setViewPickerSelectedIcon(currentView.icon);
